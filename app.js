@@ -1,5 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
+require("dotenv").config({path: './postgres.env'});
 const path = require('path');
 const app = express();
 
@@ -9,19 +10,50 @@ const allowedExt = [
     '.css'
 ];
 
-const credentials = {
-    user: "postgres",
-    host: "localhost",
-    database: "phone-directory",
-    password: "root",
-    port: 5432
+var credentials = {
+    user: process.env.USER,
+    host: process.env.HOST,
+    password: process.env.PASSWORD,
+    port: process.env.PORT
 };
 
-const pool = new Pool(credentials);
+var pool = new Pool(credentials);
+
+let check_db = async () => {
+    const result = await pool.query(`SELECT datname FROM pg_catalog.pg_database WHERE 
+        lower(datname) = lower('phone-directory')`);
+    if (result.rowCount == 0) {
+        
+        await pool.query(`CREATE DATABASE "phone-directory"
+            WITH
+            OWNER = postgres
+            ENCODING = 'UTF8'
+            LC_COLLATE = 'English_United States.1252'
+            LC_CTYPE = 'English_United States.1252'
+            TABLESPACE = pg_default
+            CONNECTION LIMIT = -1;`);
+
+        credentials.database = "phone-directory";
+        pool = new Pool(credentials);
+
+        await pool.query(`CREATE TABLE directory
+        (
+            "firstName" text NOT NULL,
+            "lastName" text NOT NULL,
+            phone integer NOT NULL,
+            "isMale" boolean NOT NULL,
+            address text NOT NULL,
+            CONSTRAINT directory_pkey PRIMARY KEY (phone)
+        )`);
+    }
+    
+};
+
+check_db();
 
 app.post('/api/add-contact',express.json() ,async (req, res) => {
     const contact = req.body;
-    const result = await pool.query(`insert into directory(
+    await pool.query(`insert into directory(
         "firstName", "lastName", "phone", "isMale", "address")
     values($1,$2,$3,$4,$5)`, 
     [   
@@ -31,12 +63,7 @@ app.post('/api/add-contact',express.json() ,async (req, res) => {
         contact.isMale, 
         contact.address
     ]);
-    if(result.rowCount){
-        res.send();
-    }
-    else{
-        res.send('Database error');
-    }
+    res.send();
 });
 
 
@@ -48,28 +75,17 @@ app.get('/api/get-contacts', async (req, res) => {
 
 app.put('/api/update-contact', express.json(), async (req, res) => {
     const contact = req.body;
-    const result = await pool.query(`update directory set 
+    await pool.query(`update directory set 
     "firstName"=($1), "lastName"=($2), "isMale"=($3), "address"=($4) where "phone"=($5)`, 
     [contact.firstName, contact.lastName, contact.isMale, contact.address, contact.phone]);
-    await pool.query('commit');
-    if(result.rows) {
-        res.send();
-    }
-    else {
-        res.send('Database error');
-    }
+    res.send();
 });
 
 
 app.delete('/api/delete-contact', express.json(), async (req, res) => {
     const phone = req.body.formData;
-    const result = await pool.query(`delete from directory where phone=$1`, [phone]);
-    if(result.rows) {
-        res.send();
-    }
-    else {
-        res.send('Database error');
-    }
+    await pool.query(`delete from directory where phone=$1`, [phone]);
+    res.send();
     
 });
 
