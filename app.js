@@ -107,6 +107,7 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(3000);
+console.log('listening at http://localhost:3000');
 
 process.on('SIGTERM', async () => {
     server.close(() => {
