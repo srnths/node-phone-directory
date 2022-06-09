@@ -41,6 +41,9 @@ let check_db = async () => {
             CONSTRAINT directory_pkey PRIMARY KEY (phone)
         )`);
     }
+    else {
+        pool = new Pool(credentials);
+    } 
     
 };
 
